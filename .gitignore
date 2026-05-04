@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+.next/
+dist/
+build/
+
+# Environment files (keep .env.example)
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+*.err.log
+logs/
+npm-debug.log*
+
+# Misc
+.DS_Store
+Thumbs.db
+*.tsbuildinfo
+
+# VS Code
+.vscode/
+
+# Test / debug artifacts
+tmp_*.ts
+tmp-*.js
+cmd-start-test*.log
+cmd-test*.log
+psi-test*.log
+start-check.txt
