@@ -79,7 +79,9 @@ export function AccessibilityWidget() {
   const [links, setLinks] = useState<Array<{ href: string; label: string }>>([]);
   const [selectedLink, setSelectedLink] = useState("");
   const [voiceStatus, setVoiceStatus] = useState("");
+  const [lastVoiceCommand, setLastVoiceCommand] = useState("");
   const [voiceSupported, setVoiceSupported] = useState(true);
+  const [microphonePermission, setMicrophonePermission] = useState<"unknown" | "prompt" | "granted" | "denied" | "unsupported">("unknown");
   const [isListening, setIsListening] = useState(false);
   const [showVoiceGuide, setShowVoiceGuide] = useState(false);
   const [keyboardStatus, setKeyboardStatus] = useState("");
@@ -125,6 +127,9 @@ export function AccessibilityWidget() {
       .replace(/\s+/g, " ")
       .trim();
 
+  const hasVoiceKeyword = (transcript: string, keywords: string[]) =>
+    keywords.some((keyword) => transcript.includes(normalizeVoiceText(keyword)));
+
   const executeVoiceCommand = (rawTranscript: string) => {
     const transcript = normalizeVoiceText(rawTranscript);
     const scrollTarget = getScrollableContainer();
@@ -136,7 +141,9 @@ export function AccessibilityWidget() {
 
     const isDown = /\b(down|bas|descendre|en bas)\b/.test(transcript);
     const isUp = /\b(up|haut|monter|en haut)\b/.test(transcript);
-    const isHome = /\b(home|accueil|acceuil|menu principal|tableau de bord|dashboard)\b/.test(transcript);
+    const isHome =
+      /\b(home|accueil|acceuil|menu principal|tableau de bord|dashboard)\b/.test(transcript) ||
+      hasVoiceKeyword(transcript, ["page home", "go home", "aller home", "aller accueil", "page accueil"]);
     const isBack = /\b(back|retour|precedent|page precedente)\b/.test(transcript);
     const isTop = /\b(top|debut|start|commencer|haut de page)\b/.test(transcript);
     const isBottom = /\b(bottom|fin|bas de page)\b/.test(transcript);
@@ -184,6 +191,7 @@ export function AccessibilityWidget() {
       setIsListening(false);
     }
 
+    setLastVoiceCommand(rawTranscript);
     const matched =
       isDown ||
       isUp ||
@@ -210,8 +218,44 @@ export function AccessibilityWidget() {
     return document.scrollingElement as HTMLElement | null;
   };
 
+  const checkMicrophonePermission = async () => {
+    if (typeof navigator === "undefined" || !("permissions" in navigator)) {
+      return;
+    }
+
+    try {
+      const permissionStatus = await navigator.permissions.query({ name: "microphone" as PermissionName });
+      setMicrophonePermission(permissionStatus.state as "prompt" | "granted" | "denied");
+      permissionStatus.onchange = () => {
+        setMicrophonePermission(permissionStatus.state as "prompt" | "granted" | "denied");
+      };
+    } catch {
+      setMicrophonePermission("unknown");
+    }
+  };
+
+  const requestMicrophoneAccess = async () => {
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+      setMicrophonePermission("unsupported");
+      setVoiceStatus("Microphone API not supported in this browser.");
+      return false;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((track) => track.stop());
+      setMicrophonePermission("granted");
+      return true;
+    } catch {
+      setMicrophonePermission("denied");
+      setVoiceStatus("Microphone permission denied. Please allow microphone access.");
+      return false;
+    }
+  };
+
   useEffect(() => {
     setPortalReady(true);
+    void checkMicrophonePermission();
   }, []);
 
   useEffect(() => {
@@ -271,7 +315,7 @@ export function AccessibilityWidget() {
   }, [open, settings.virtualKeyboard]);
 
   useEffect(() => {
-    if (!open || !settings.voiceNavigation || !isListening) {
+    if (!settings.voiceNavigation || !isListening) {
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
@@ -306,6 +350,7 @@ export function AccessibilityWidget() {
     const SpeechRecognitionCtor = maybeWindow.SpeechRecognition || maybeWindow.webkitSpeechRecognition;
     if (!SpeechRecognitionCtor) {
       setVoiceSupported(false);
+      setMicrophonePermission("unsupported");
       setVoiceStatus("Voice navigation not supported in this browser.");
       return;
     }
@@ -376,7 +421,7 @@ export function AccessibilityWidget() {
       }
       recognitionRef.current = null;
     };
-  }, [open, settings.voiceNavigation, speechLang, isListening]);
+  }, [settings.voiceNavigation, speechLang, isListening]);
 
   useEffect(() => {
     if (!settings.voiceNavigation) {
@@ -400,6 +445,11 @@ export function AccessibilityWidget() {
           transform: none !important;
           max-height: calc(100dvh - 32px) !important;
           overflow: auto !important;
+        }
+
+        @keyframes handitalents-voice-pulse {
+          0%, 100% { transform: scaleY(0.35); opacity: 0.5; }
+          50% { transform: scaleY(1); opacity: 1; }
         }
       `}</style>
       <div
@@ -505,6 +555,50 @@ export function AccessibilityWidget() {
       {settings.voiceNavigation ? (
         <section className="accessibility-module">
           <p className="accessibility-module-title">Voice controls</p>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "auto 1fr",
+              alignItems: "center",
+              gap: "12px",
+              marginBottom: "12px",
+              padding: "10px 12px",
+              borderRadius: "16px",
+              background: isListening ? "rgba(109,42,149,0.08)" : "rgba(220,38,38,0.06)",
+              border: `1px solid ${isListening ? "rgba(109,42,149,0.16)" : "rgba(220,38,38,0.12)"}`,
+            }}
+          >
+            <div
+              aria-hidden="true"
+              style={{
+                display: "flex",
+                alignItems: "flex-end",
+                gap: "4px",
+                height: "28px",
+              }}
+            >
+              {[0, 1, 2, 3].map((index) => (
+                <span
+                  key={index}
+                  style={{
+                    width: "5px",
+                    height: `${12 + index * 4}px`,
+                    borderRadius: "999px",
+                    background: isListening ? "linear-gradient(180deg, #a855f7, #6d2a95)" : "#d1c5ea",
+                    transformOrigin: "bottom center",
+                    animation: isListening ? `handitalents-voice-pulse 0.9s ease-in-out ${index * 0.12}s infinite` : "none",
+                  }}
+                />
+              ))}
+            </div>
+            <div style={{ display: "grid", gap: "2px" }}>
+              <strong style={{ fontSize: "0.92rem", color: "#24163f" }}>{isListening ? "Listening now" : "Not listening"}</strong>
+              <span style={{ fontSize: "0.82rem", color: "var(--app-muted)" }}>
+                {isListening ? "Le micro ecoute vos commandes vocales." : "Activez l'ecoute pour utiliser les commandes vocales."}
+              </span>
+            </div>
+          </div>
+
           <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
             <span
               aria-hidden="true"
@@ -517,14 +611,20 @@ export function AccessibilityWidget() {
                 display: "inline-block",
               }}
             />
-            <strong style={{ fontSize: "0.9rem" }}>{isListening ? "Listening now" : "Not listening"}</strong>
+            <strong style={{ fontSize: "0.9rem" }}>{isListening ? "Voice active" : "Voice stopped"}</strong>
           </div>
           <div className="page-header-actions" style={{ gap: "10px" }}>
             <button
               type="button"
               className="accessibility-reset"
               style={{ minHeight: "40px", width: "auto", padding: "0 14px" }}
-              onClick={() => setIsListening(true)}
+              onClick={async () => {
+                const granted = await requestMicrophoneAccess();
+                if (granted) {
+                  setVoiceStatus("Microphone ready. Starting voice navigation...");
+                  setIsListening(true);
+                }
+              }}
               disabled={isListening || !voiceSupported}
             >
               Start listening
@@ -556,10 +656,9 @@ export function AccessibilityWidget() {
               <p style={{ margin: "0 0 6px" }}><strong>Help:</strong> aide/help/show commands</p>
               <p style={{ margin: 0 }}><strong>Stop:</strong> stop listening / arreter ecoute</p>
             </div>
-          ) : null}
+            ) : null}
         </section>
       ) : null}
-
       <section className="accessibility-module">
         <p className="accessibility-module-title">Link navigator</p>
         <div style={{ display: "grid", gap: "8px" }}>
@@ -578,6 +677,29 @@ export function AccessibilityWidget() {
         </section>
       ) : null}
 
+      {settings.voiceNavigation ? (
+        <section className="accessibility-module">
+          <p className="accessibility-module-title">Commande entendue</p>
+          <div
+            style={{
+              minHeight: "64px",
+              padding: "12px 14px",
+              borderRadius: "16px",
+              background: "#ffffff",
+              border: "1px solid rgba(91, 63, 153, 0.1)",
+              display: "grid",
+              gap: "6px",
+            }}
+          >
+            <strong style={{ fontSize: "0.88rem", color: "#24163f" }}>
+              {lastVoiceCommand ? `"${lastVoiceCommand}"` : "Aucune commande entendue pour le moment"}
+            </strong>
+            <span style={{ fontSize: "0.8rem", color: "var(--app-muted)" }}>
+              {lastVoiceCommand ? "Derniere commande captee par le micro." : "Parlez apres avoir clique sur Start listening."}
+            </span>
+          </div>
+        </section>
+      ) : null}
       {settings.voiceNavigation && voiceStatus ? <p className="texte-secondaire" style={{ marginTop: 0 }}>{voiceStatus}</p> : null}
       {settings.voiceNavigation ? (
         <p className="texte-secondaire" style={{ marginTop: 0 }}>

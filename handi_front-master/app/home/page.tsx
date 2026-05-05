@@ -1072,8 +1072,7 @@ function CandidateHome({
     match: clamp(matchingScore - index * 7 + (index === 0 ? 9 : 0), 72, 96),
     isNew: index === 0,
   }));
-  const journeyProgress = Math.max(Math.round(profileValue / 2), 20);
-  const heroHighlights = [
+    const heroHighlights = [
     { title: "Offres inclusives", text: "Des postes adaptes a votre rythme et a vos besoins." },
     { title: "Recommande pour vous", text: "Un tri plus fin selon votre progression actuelle." },
     { title: "Entreprises engagees", text: "Des recruteurs qui affichent leurs engagements." },
@@ -1151,9 +1150,8 @@ function CandidateHome({
 
   return (
     <div className="candidate-home-v2x">
-      <section className="candidate-home-v2x__hero card-base">
+        <section className="candidate-home-v2x__hero card-base">
           <div className="candidate-home-v2x__hero-copy">
-            <p className="candidate-home-v2x__eyebrow">Tableau de bord candidat</p>
             <div className="candidate-home-v2x__hero-top">
               <div>
                 <h1>Bonjour {firstName}</h1>
@@ -1333,29 +1331,20 @@ function CandidateHome({
             </div>
           </section>
 
-          <section className="candidate-home-v2x__journey card-base">
-            <div className="candidate-home-v2x__journey-copy">
-              <div className="candidate-home-v2x__section-headline candidate-home-v2x__journey-headline">
-                <p className="candidate-home-v2x__journey-tag">Recommande</p>
-                <h2>Parcours recommande pour vous</h2>
-                <p className="candidate-home-v2x__journey-lead">
-                  Ameliorez vos competences en developpement web
-                </p>
-                <p>Base sur votre profil et les tendances du marche</p>
+            <section className="candidate-home-v2x__journey">
+              <div className="candidate-home-v2x__journey-copy">
+                <div className="candidate-home-v2x__section-headline candidate-home-v2x__journey-headline">
+                  <h2>Mettez en avant vos competences</h2>
+                  <p className="candidate-home-v2x__journey-lead">
+                    Completez votre profil pour recevoir des offres qui vous correspondent vraiment.
+                  </p>
+                </div>
+                <div className="candidate-home-v2x__journey-actions">
+                  <ButtonLink href="/candidat/cv" variant="secondary" className="candidate-home-v2x__journey-button">
+                    Completer mon profil
+                  </ButtonLink>
+                </div>
               </div>
-              <div className="candidate-home-v2x__journey-meta">
-                <span>Progression</span>
-                <strong>{journeyProgress}%</strong>
-              </div>
-              <div className="candidate-home-v2x__journey-track">
-                <span style={{ width: `${journeyProgress}%` }} />
-              </div>
-              <div className="candidate-home-v2x__journey-actions">
-                <ButtonLink href="/candidat/cv" variant="secondary" className="candidate-home-v2x__journey-button">
-                  Continuer le parcours
-                </ButtonLink>
-              </div>
-            </div>
             <div className="candidate-home-v2x__journey-art" aria-hidden="true">
               <Image src="/uploads/fleche.png" alt="" width={420} height={420} className="candidate-home-v2x__cta-img" />
             </div>
